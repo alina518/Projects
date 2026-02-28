@@ -1,0 +1,75 @@
+import pyautogui
+import os
+import time
+
+# --- CONFIGURATION ---
+SOURCE_FOLDER = r"FOLDER LOCATION"
+# Define which extensions go into which folders
+FOLDER_MAP = {
+    "Pictures": [".jpg", ".jpeg", ".png", ".gif"],
+    "Documents": [".pdf", ".docx", ".txt", ".xlsx"],
+    "Music": [".mp3", ".wav"]
+}
+
+pyautogui.PAUSE = 1.0
+
+
+def setup_folders():
+    """Checks if destination folders exist; if not, creates them."""
+    print("Checking/Creating folders...")
+    for folder_name in FOLDER_MAP.keys():
+        folder_path = os.path.join(SOURCE_FOLDER, folder_name)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+            print(f"Created folder: {folder_name}")
+    print("Setup complete.\n")
+
+
+def organize_files():
+    # 1. Run the folder setup first
+    setup_folders()
+
+    # 2. Open File Explorer
+    os.startfile(SOURCE_FOLDER)
+    time.sleep(2)
+
+    # 3. Get list of files
+    files = os.listdir(SOURCE_FOLDER)
+
+    for file in files:
+        full_path = os.path.join(SOURCE_FOLDER, file)
+
+        # Skip if it's a folder (we only want to move files)
+        if os.path.isdir(full_path):
+            continue
+
+        # Find the right folder based on the file extension
+        file_ext = os.path.splitext(file)[1].lower()
+        dest_folder = None
+
+        for folder, extensions in FOLDER_MAP.items():
+            if file_ext in extensions:
+                dest_folder = folder
+                break
+
+        # If the file type isn't in our list, skip it
+        if not dest_folder:
+            continue
+
+        print(f"Moving {file} -> {dest_folder}")
+
+        # --- PyAutoGUI Automation ---
+        pyautogui.write(file)  # Select the file
+        pyautogui.hotkey('ctrl', 'x')  # Cut
+        pyautogui.write(dest_folder)  # Select the folder we just created
+        pyautogui.press('enter')  # Enter folder
+        time.sleep(0.5)
+        pyautogui.hotkey('ctrl', 'v')  # Paste
+        pyautogui.hotkey('alt', 'left')  # Go back
+        time.sleep(0.5)
+
+    print("\nAll files organized!")
+
+
+if __name__ == "__main__":
+    organize_files()
