@@ -1,0 +1,55 @@
+import time, webbrowser, pyautogui
+
+FORM_URL = "form url"
+# open the form automatically
+webbrowser.open(FORM_URL)
+
+# wait for page to fully load
+time.sleep(10)
+
+def fill(label, value):
+    pyautogui.hotkey("ctrl", "f")
+    time.sleep(0.4)
+
+
+    pyautogui.write(label)
+    time.sleep(0.8)
+
+    pyautogui.press("enter")        # ensure it jumps to the match
+    time.sleep(0.4)
+
+    pyautogui.press("esc")
+    time.sleep(0.4)
+
+    pyautogui.press("tab")
+    time.sleep(0.3)
+
+    pyautogui.write(value)
+    time.sleep(0.7)
+
+def click_submit():
+    pyautogui.hotkey('ctrl','f')
+    time.sleep(0.4)
+
+    pyautogui.write('Submit')
+    time.sleep(0.8)
+
+    pyautogui.hotkey('shift', 'tab')
+    time.sleep(0.4)
+
+    pyautogui.press('enter')
+    time.sleep(0.4)
+
+    pyautogui.press('esc')
+    time.sleep(0.4)
+
+    pyautogui.press('enter')
+
+# fill fields automatically
+fill("Name".title(), "YOUR NAME")
+fill("Email", "EMAIL")
+fill("Address", "LOCATION")
+fill('Phone number','PHONE NUMBER')
+fill('Comments','Good')
+click_submit()
+print("Form auto-filled.")
