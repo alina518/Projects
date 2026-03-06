@@ -1,0 +1,504 @@
+import os
+import re
+import json
+import csv
+from datetime import datetime
+
+import requests
+from twilio.rest import Client
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# =========================
+# CONFIG
+# =========================
+ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID")
+ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY")
+TWILIO_SID = os.getenv("TWILIO_SID")
+TWILIO_TOKEN = os.getenv("TWILIO_TOKEN")
+YOUR_WHATSAPP = os.getenv("YOUR_WHATSAPP")
+TWILIO_WHATSAPP = os.getenv("TWILIO_WHATSAPP", "whatsapp:+14155238886")
+
+SEEN_JOBS_FILE = "seen_jobs.json"
+CSV_FILE = "jobs_history.csv"
+OUTREACH_FOLDER = "outreach_messages"
+
+
+# =========================
+# VALIDATION
+# =========================
+def validate_config():
+    required = {
+        "ADZUNA_APP_ID": ADZUNA_APP_ID,
+        "ADZUNA_APP_KEY": ADZUNA_APP_KEY,
+        "TWILIO_SID": TWILIO_SID,
+        "TWILIO_TOKEN": TWILIO_TOKEN,
+        "YOUR_WHATSAPP": YOUR_WHATSAPP,
+    }
+
+    missing = [key for key, value in required.items() if not value]
+    if missing:
+        raise ValueError(f"Missing environment variables: {', '.join(missing)}")
+
+
+# =========================
+# FILE HELPERS
+# =========================
+def load_seen_jobs():
+    if os.path.exists(SEEN_JOBS_FILE):
+        try:
+            with open(SEEN_JOBS_FILE, "r", encoding="utf-8") as file:
+                return set(json.load(file))
+        except Exception:
+            return set()
+    return set()
+
+
+def save_seen_jobs(seen_jobs):
+    with open(SEEN_JOBS_FILE, "w", encoding="utf-8") as file:
+        json.dump(list(seen_jobs), file, indent=2)
+
+
+def save_jobs_to_csv(jobs):
+    file_exists = os.path.exists(CSV_FILE)
+
+    with open(CSV_FILE, "a", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+
+        if not file_exists:
+            writer.writerow([
+                "fetched_at",
+                "title",
+                "company",
+                "location",
+                "salary_min",
+                "salary_max",
+                "work_mode",
+                "job_type",
+                "score",
+                "match_score",
+                "matched_skills",
+                "link"
+            ])
+
+        for job in jobs:
+            writer.writerow([
+                job["fetched_at"],
+                job["title"],
+                job["company"],
+                job["location"],
+                job["salary_min"],
+                job["salary_max"],
+                job["work_mode"],
+                job["job_type"],
+                job["score"],
+                job["match_score"],
+                ", ".join(job["matched_skills"]),
+                job["link"]
+            ])
+
+
+def safe_filename(text):
+    return re.sub(r'[^a-zA-Z0-9_-]+', '_', text).strip("_")
+
+
+# =========================
+# DETECTION / MATCHING
+# =========================
+def detect_work_mode(full_text):
+    text = full_text.lower()
+
+    if "hybrid" in text:
+        return "Hybrid"
+    if "remote" in text or "work from home" in text or "wfh" in text:
+        return "Remote"
+    return "Onsite/Unknown"
+
+
+def detect_job_type(full_text):
+    text = full_text.lower()
+
+    if "intern" in text or "internship" in text:
+        return "Internship"
+    if "full time" in text or "full-time" in text:
+        return "Full-time"
+    if "part time" in text or "part-time" in text:
+        return "Part-time"
+    return "Not specified"
+
+
+def extract_matching_skills(job_text, user_skills):
+    job_text_lower = job_text.lower()
+    matched = []
+
+    for skill in user_skills:
+        if skill.lower() in job_text_lower:
+            matched.append(skill)
+
+    return matched
+
+
+def compute_match_score(matched_skills, total_user_skills):
+    if total_user_skills == 0:
+        return 0
+    return round((len(matched_skills) / total_user_skills) * 100, 2)
+
+
+# =========================
+# OUTREACH GENERATION
+# =========================
+def generate_cover_letter(user_profile, job):
+    matched_skills = job["matched_skills"]
+    skill_text = ", ".join(matched_skills) if matched_skills else ", ".join(user_profile["skills"][:3])
+
+    project_text = ", ".join(user_profile["projects"][:2]) if user_profile["projects"] else "academic and personal projects"
+
+    return f"""Dear Hiring Manager,
+
+I am writing to express my interest in the position of {job['title']} at {job['company']}.
+
+I am a {user_profile['experience']} with skills in {skill_text}. I have worked on projects such as {project_text}, which helped me build practical experience relevant to software development and problem solving.
+
+I am particularly interested in this opportunity because it aligns with my target role of {user_profile['target_role']}. I would welcome the chance to contribute my skills and continue learning as part of your team.
+
+Thank you for your time and consideration.
+
+Sincerely,
+{user_profile['name']}
+Email: {user_profile['email']}
+Phone: {user_profile['phone']}
+LinkedIn: {user_profile['linkedin']}
+"""
+
+
+def generate_hr_email(user_profile, job):
+    matched_skills = job["matched_skills"]
+    skill_text = ", ".join(matched_skills) if matched_skills else ", ".join(user_profile["skills"][:3])
+
+    return f"""Subject: Application for {job['title']} at {job['company']}
+
+Dear HR Team,
+
+I came across the opening for {job['title']} at {job['company']} and would like to express my interest.
+
+I am a {user_profile['experience']} with skills in {skill_text}. I have also worked on projects that strengthened my practical understanding of development and problem solving.
+
+I would be glad to share my resume and any additional details if required.
+
+Regards,
+{user_profile['name']}
+{user_profile['email']}
+{user_profile['phone']}
+"""
+
+
+def generate_linkedin_message(user_profile, job):
+    matched_skills = job["matched_skills"]
+    skill_text = ", ".join(matched_skills[:3]) if matched_skills else ", ".join(user_profile["skills"][:3])
+
+    return f"""Hi, I came across the {job['title']} role at {job['company']}. I am a {user_profile['experience']} with skills in {skill_text} and I’m very interested in opportunities aligned with {user_profile['target_role']}. I’d love to connect and learn more about this role.
+
+Regards,
+{user_profile['name']}"""
+
+
+def save_outreach_files(job, cover_letter, hr_email, linkedin_msg):
+    os.makedirs(OUTREACH_FOLDER, exist_ok=True)
+
+    filename = f"{safe_filename(job['company'])}_{safe_filename(job['title'])}.txt"
+    filepath = os.path.join(OUTREACH_FOLDER, filename)
+
+    with open(filepath, "w", encoding="utf-8") as file:
+        file.write("JOB DETAILS\n")
+        file.write("=" * 50 + "\n")
+        file.write(f"Title: {job['title']}\n")
+        file.write(f"Company: {job['company']}\n")
+        file.write(f"Location: {job['location']}\n")
+        file.write(f"Salary Min: {job['salary_min']}\n")
+        file.write(f"Salary Max: {job['salary_max']}\n")
+        file.write(f"Work Mode: {job['work_mode']}\n")
+        file.write(f"Job Type: {job['job_type']}\n")
+        file.write(f"Match Score: {job['match_score']}%\n")
+        file.write(f"Matched Skills: {', '.join(job['matched_skills'])}\n")
+        file.write(f"Link: {job['link']}\n\n")
+
+        file.write("COVER LETTER\n")
+        file.write("=" * 50 + "\n")
+        file.write(cover_letter + "\n\n")
+
+        file.write("HR EMAIL\n")
+        file.write("=" * 50 + "\n")
+        file.write(hr_email + "\n\n")
+
+        file.write("LINKEDIN MESSAGE\n")
+        file.write("=" * 50 + "\n")
+        file.write(linkedin_msg + "\n")
+
+
+# =========================
+# JOB FETCHING
+# =========================
+def fetch_jobs(
+    keyword="Python",
+    location="Bengaluru",
+    min_salary=None,
+    preferred_work_mode=None,
+    company_name=None,
+    preferred_job_type=None,
+    user_skills=None
+):
+    url = "https://api.adzuna.com/v1/api/jobs/in/search/1"
+
+    params = {
+        "app_id": ADZUNA_APP_ID,
+        "app_key": ADZUNA_APP_KEY,
+        "results_per_page": 20,
+        "what": keyword,
+        "where": location,
+        "content-type": "application/json"
+    }
+
+    response = requests.get(url, params=params, timeout=20)
+
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}")
+        print(response.text)
+        return []
+
+    data = response.json()
+    results = data.get("results", [])
+    print("Total jobs from API:", len(results))
+
+    seen_jobs = load_seen_jobs()
+    jobs = []
+
+    for result in results:
+        title = result.get("title", "No Title")
+        company = result.get("company", {}).get("display_name", "Unknown Company")
+        link = result.get("redirect_url", "No Link")
+        description = result.get("description", "")
+        salary_min = result.get("salary_min")
+        salary_max = result.get("salary_max")
+        location_name = result.get("location", {}).get("display_name", "Unknown Location")
+
+        job_id = link.strip() if link and link != "No Link" else f"{title}_{company}_{location_name}"
+
+        # duplicate filter
+        if job_id in seen_jobs:
+            continue
+
+        full_text = f"{title} {description} {location_name}"
+
+        detected_work_mode = detect_work_mode(full_text)
+        detected_job_type = detect_job_type(full_text)
+
+        # hard filters
+        if min_salary is not None and salary_min is not None:
+            if salary_min < min_salary:
+                continue
+
+        if company_name:
+            if company_name.lower() not in company.lower():
+                continue
+
+        # skill matching
+        matched_skills = extract_matching_skills(full_text, user_skills or [])
+        match_score = compute_match_score(matched_skills, len(user_skills or []))
+
+        # soft scoring
+        score = 0
+
+        keyword_words = keyword.lower().split()
+        for word in keyword_words:
+            if word in full_text.lower():
+                score += 1
+
+        if preferred_work_mode:
+            pref = preferred_work_mode.lower()
+            if pref == "remote" and detected_work_mode == "Remote":
+                score += 2
+            elif pref == "hybrid" and detected_work_mode == "Hybrid":
+                score += 2
+            elif pref == "onsite" and detected_work_mode == "Onsite/Unknown":
+                score += 1
+
+        if preferred_job_type:
+            pref = preferred_job_type.lower()
+            if pref == "internship" and detected_job_type == "Internship":
+                score += 2
+            elif pref == "full-time" and detected_job_type == "Full-time":
+                score += 2
+
+        score += len(matched_skills) * 2
+
+        if salary_min is not None:
+            score += 1
+
+        fetched_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        jobs.append({
+            "job_id": job_id,
+            "fetched_at": fetched_at,
+            "title": title,
+            "company": company,
+            "location": location_name,
+            "salary_min": salary_min if salary_min is not None else "",
+            "salary_max": salary_max if salary_max is not None else "",
+            "work_mode": detected_work_mode,
+            "job_type": detected_job_type,
+            "score": score,
+            "match_score": match_score,
+            "matched_skills": matched_skills,
+            "link": link
+        })
+
+    jobs.sort(key=lambda x: (x["score"], x["match_score"]), reverse=True)
+
+    print("New jobs after filtering:", len(jobs))
+    return jobs
+
+
+# =========================
+# WHATSAPP
+# =========================
+def format_jobs_for_whatsapp(jobs, user_profile, limit=3):
+    if not jobs:
+        return ""
+
+    lines = ["🚀 *Today's Job Picks*"]
+    lines.append("_Full drafts saved to outreach_folder/_\n")
+
+    for index, job in enumerate(jobs[:limit], start=1):
+        # We removed the LinkedIn draft here to save space
+        salary_text = "Not specified"
+        if job["salary_min"] and job["salary_max"]:
+            salary_text = f"{job['salary_min']} - {job['salary_max']}"
+        elif job["salary_min"]:
+            salary_text = f"From {job['salary_min']}"
+
+        lines.append(
+            f"{index}. *{job['title']}*\n"
+            f"🏢 {job['company']}\n"
+            f"📍 {job['location']}\n"
+            f"💰 {salary_text}\n"
+            f"🎯 Match: {job['match_score']}%\n"
+            f"🔗 {job['link']}\n"
+        )
+
+    return "\n".join(lines)
+
+
+def send_whatsapp(job_list, user_profile):
+    if not job_list:
+        print("No new matching jobs found.")
+        return False
+
+    client = Client(TWILIO_SID, TWILIO_TOKEN)
+    message_body = format_jobs_for_whatsapp(job_list, user_profile, limit=3)
+
+    client.messages.create(
+        from_=TWILIO_WHATSAPP,
+        body=message_body,
+        to=YOUR_WHATSAPP
+    )
+
+    print("✅ WhatsApp message sent!")
+    return True
+
+
+# =========================
+# MAIN
+# =========================
+if __name__ == "__main__":
+    validate_config()
+
+    print("\n===== USER PROFILE =====")
+    name = input("Enter your name: ").strip()
+    email = input("Enter your email: ").strip()
+    phone = input("Enter your phone: ").strip()
+    linkedin = input("Enter your LinkedIn profile: ").strip()
+    experience = input("Enter your experience level (e.g. Fresher): ").strip()
+    target_role = input("Enter your target role: ").strip()
+
+    skills_input = input("Enter your skills separated by commas: ").strip()
+    skills = [skill.strip() for skill in skills_input.split(",") if skill.strip()]
+
+    projects_input = input("Enter your projects separated by commas: ").strip()
+    projects = [project.strip() for project in projects_input.split(",") if project.strip()]
+
+    user_profile = {
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "linkedin": linkedin,
+        "experience": experience,
+        "target_role": target_role,
+        "skills": skills,
+        "projects": projects
+    }
+
+    print("\n===== JOB FILTERS =====")
+    keyword = input("Enter keyword (default: Python): ").strip()
+    location = input("Enter location (default: Bengaluru): ").strip()
+
+    salary_input = input("Enter minimum salary (or leave blank): ").strip()
+    min_salary = int(salary_input) if salary_input else None
+
+    preferred_work_mode = input(
+        "Preferred work mode [remote/hybrid/onsite] (or leave blank): "
+    ).strip().lower()
+    if preferred_work_mode not in ["remote", "hybrid", "onsite"]:
+        preferred_work_mode = None
+
+    company_name = input("Enter company name filter (or leave blank): ").strip()
+    if not company_name:
+        company_name = None
+
+    preferred_job_type = input(
+        "Preferred job type [full-time/internship] (or leave blank): "
+    ).strip().lower()
+    if preferred_job_type not in ["full-time", "internship"]:
+        preferred_job_type = None
+
+    found_jobs = fetch_jobs(
+        keyword=keyword if keyword else "Python",
+        location=location if location else "Bengaluru",
+        min_salary=min_salary,
+        preferred_work_mode=preferred_work_mode,
+        company_name=company_name,
+        preferred_job_type=preferred_job_type,
+        user_skills=user_profile["skills"]
+    )
+
+    if not found_jobs:
+        print("No new matching jobs found.")
+    else:
+        print("\nTop jobs:")
+        for i, job in enumerate(found_jobs[:3], start=1):
+            print(f"{i}. {job['title']} at {job['company']} | Match Score: {job['match_score']}%")
+
+        # Save CSV always
+        save_jobs_to_csv(found_jobs)
+
+        # Generate outreach files for top 3
+        for job in found_jobs[:3]:
+            cover_letter = generate_cover_letter(user_profile, job)
+            hr_email = generate_hr_email(user_profile, job)
+            linkedin_msg = generate_linkedin_message(user_profile, job)
+
+            save_outreach_files(job, cover_letter, hr_email, linkedin_msg)
+
+        # Send WhatsApp first
+        sent = send_whatsapp(found_jobs, user_profile)
+
+        # Only mark as seen if message sent successfully
+        if sent:
+            seen_jobs = load_seen_jobs()
+            for job in found_jobs:
+                seen_jobs.add(job["job_id"])
+            save_seen_jobs(seen_jobs)
+            print("✅ Seen jobs updated.")
+
+        print(f"✅ Outreach drafts saved in folder: {OUTREACH_FOLDER}")
+        print(f"✅ Job history saved in file: {CSV_FILE}")
