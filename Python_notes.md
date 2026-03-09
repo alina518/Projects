@@ -1,7 +1,6 @@
-````markdown
 # 🐍 Python Notes for Beginners
 
-![GitHub repo size](https://img.shields.io/badge/Level-Beginner-friendly-blue)
+![Level](https://img.shields.io/badge/Level-Beginner--friendly-blue)
 ![Focus](https://img.shields.io/badge/Focus-Interviews-success)
 ![Format](https://img.shields.io/badge/Format-GitHub%20README-black)
 ![Examples](https://img.shields.io/badge/Includes-Real%20Life%20Examples-orange)
@@ -122,6 +121,7 @@ If you want to automatically rename 500 files in a folder, Python can do it in a
 - Supports multiple programming styles
 
 ### What does interpreted mean?
+
 Python code runs line by line through an interpreter instead of being fully compiled first.
 
 ---
@@ -139,9 +139,10 @@ Python code runs line by line through an interpreter instead of being fully comp
 - IDLE
 
 ### Check Python version
+
 ```python
 python --version
-````
+```
 
 or
 
@@ -179,10 +180,10 @@ cgpa = 8.5
 
 ### Rules for variable names
 
-* can contain letters, digits, and underscore
-* cannot start with a digit
-* cannot use Python keywords
-* case-sensitive
+- can contain letters, digits, and underscore
+- cannot start with a digit
+- cannot use Python keywords
+- case-sensitive
 
 ### Examples
 
@@ -299,12 +300,12 @@ print(b)
 
 ### Common conversions
 
-* `int()`
-* `float()`
-* `str()`
-* `list()`
-* `tuple()`
-* `set()`
+- `int()`
+- `float()`
+- `str()`
+- `list()`
+- `tuple()`
+- `set()`
 
 ### Real-life example
 
@@ -434,9 +435,8 @@ else:
 ### Real-life example
 
 ATM machine:
-
-* if balance is enough → withdraw
-* else → show insufficient balance
+- if balance is enough → withdraw
+- else → show insufficient balance
 
 ---
 
@@ -694,10 +694,9 @@ for key, value in student.items():
 ### Real-life example
 
 Student record:
-
-* name
-* register number
-* marks
+- name
+- register number
+- marks
 
 This is naturally represented using a dictionary.
 
@@ -712,7 +711,7 @@ A function is a block of reusable code.
 ```python
 def greet():
     print("Hello")
-    
+
 greet()
 ```
 
@@ -737,18 +736,17 @@ print(result)
 
 ### Why use functions?
 
-* code reuse
-* cleaner code
-* easier debugging
-* better organization
+- code reuse
+- cleaner code
+- easier debugging
+- better organization
 
 ### Real-life example
 
 In a billing system, you can create separate functions for:
-
-* calculate total
-* display bill
-* apply discount
+- calculate total
+- display bill
+- apply discount
 
 ---
 
@@ -849,11 +847,11 @@ print(sqrt(16))
 
 ### Example built-in modules
 
-* `math`
-* `random`
-* `os`
-* `sys`
-* `datetime`
+- `math`
+- `random`
+- `os`
+- `sys`
+- `datetime`
 
 ### Real-life example
 
@@ -899,11 +897,10 @@ with open("sample.txt", "a") as file:
 ### Real-life example
 
 File handling is used for:
-
-* student records
-* log files
-* CSV processing
-* report generation
+- student records
+- log files
+- CSV processing
+- report generation
 
 ---
 
@@ -996,10 +993,9 @@ d.bark()
 ### Real-life example
 
 Hospital Management System:
-
-* `Patient`
-* `Doctor`
-* `Appointment`
+- `Patient`
+- `Doctor`
+- `Appointment`
 
 Each can be a class.
 
@@ -1054,9 +1050,9 @@ print(evens)
 
 ### Why useful?
 
-* shorter code
-* readable when simple
-* common in interviews
+- shorter code
+- readable when simple
+- common in interviews
 
 ---
 
@@ -1076,22 +1072,22 @@ Because it has simple syntax, fewer lines of code, and a large community with ma
 
 ### Q3. Difference between list and tuple?
 
-* List is mutable
-* Tuple is immutable
+- List is mutable
+- Tuple is immutable
 
 ---
 
 ### Q4. Difference between set and dictionary?
 
-* Set stores unique values
-* Dictionary stores key-value pairs
+- Set stores unique values
+- Dictionary stores key-value pairs
 
 ---
 
 ### Q5. What is the difference between `==` and `is`?
 
-* `==` checks value equality
-* `is` checks object identity
+- `==` checks value equality
+- `is` checks object identity
 
 Example:
 
@@ -1144,48 +1140,48 @@ Python is a high-level, interpreted, general-purpose programming language widely
 
 ### Core topics
 
-* Variables
-* Data types
-* Operators
-* Input/output
-* Conditions
-* Loops
-* Functions
-* File handling
-* Exception handling
-* OOP
+- Variables
+- Data types
+- Operators
+- Input/output
+- Conditions
+- Loops
+- Functions
+- File handling
+- Exception handling
+- OOP
 
 ---
 
 ### Important data structures
 
-* List → ordered, mutable
-* Tuple → ordered, immutable
-* Set → unordered, unique
-* Dictionary → key-value pairs
+- List → ordered, mutable
+- Tuple → ordered, immutable
+- Set → unordered, unique
+- Dictionary → key-value pairs
 
 ---
 
 ### Most-used concepts
 
-* loops
-* functions
-* string methods
-* list methods
-* dictionaries
-* file handling
-* classes and objects
+- loops
+- functions
+- string methods
+- list methods
+- dictionaries
+- file handling
+- classes and objects
 
 ---
 
 ### Important interview lines
 
-* Python is interpreted and beginner-friendly.
-* Lists are mutable; tuples are immutable.
-* Dictionaries store data as key-value pairs.
-* Functions improve code reusability.
-* Exception handling makes programs robust.
-* OOP helps organize large programs.
+- Python is interpreted and beginner-friendly.
+- Lists are mutable; tuples are immutable.
+- Dictionaries store data as key-value pairs.
+- Functions improve code reusability.
+- Exception handling makes programs robust.
+- OOP helps organize large programs.
 
 ---
 
@@ -1215,7 +1211,6 @@ Python is a high-level, interpreted, general-purpose programming language that i
 ## 📌 Best Way to Study This
 
 Read in this order:
-
 1. Basics of Python
 2. Variables and data types
 3. Operators and input/output
@@ -1233,14 +1228,21 @@ Then revise using the **Quick Revision Sheet**.
 
 ## ⭐ Suggested GitHub Repo Names
 
-* `python-notes`
-* `python-for-beginners`
-* `python-interview-notes`
-* `python-revision-notes`
-* `learn-python-basics`
+- `python-notes`
+- `python-for-beginners`
+- `python-interview-notes`
+- `python-revision-notes`
+- `learn-python-basics`
 
 ---
 
 ## 🛠 Suggested File Structure
 
 
+```
+
+---
+
+## 📖 License
+
+This repository is for learning, revision, and interview preparation.
